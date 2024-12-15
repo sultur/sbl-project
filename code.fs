@@ -27,7 +27,3 @@ variable statsfile s" todostats.csv" !
 	slurp-file ( addr2 u2 )
 	s" TODO"
 	count-substr ( u3 ) ;
-
-: main ( -- )
-	while
-;
