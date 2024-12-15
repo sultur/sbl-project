@@ -1,5 +1,6 @@
 
-variable statsfile s" todostats.csv" !
+2variable statsfile
+"todostats.csv" statsfile 2!
 
 : discard-n-chars ( addr1 u1 n -- addr2 u2 )
 	\ Increment addr1 by n and decrement u1 by n (discard beginning of string)
