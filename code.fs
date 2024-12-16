@@ -40,11 +40,10 @@
      \ Append filename (addr1 u1) and TODO count (u2) to the CSV file
      s" todostats.csv" r/o open-file
      if
-         \ File does not exist, create it and write the header
+         \ file does not exist
          s" todostats.csv" r/w create-file throw >r
          s" Filename,TODO Count" r@ write-line throw
      else
-         \ File exists, open it for appending
          drop
          s" todostats.csv" r/w open-file throw >r
      then
