@@ -1,7 +1,7 @@
 
-512 constant MAX-FSNAME-LENGTH ( We run into trouble if the filenames are longer than 512 chars )
+\ 512 constant MAX-FSNAME-LENGTH ( We run into trouble if the filenames are longer than 512 chars )
 
-MAX-FSNAME-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir )
+\ MAX-FSNAME-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir )
 
 : discard-n-chars ( addr1 u1 n -- addr2 u2 )
 	\ Increment addr1 by n and decrement u1 by n (discard beginning of string)
@@ -36,3 +36,22 @@ MAX-FSNAME-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir 
 ;
 
 \ TODO: Statistics reporting from csv file
+: append-to-csv ( addr1 u1 u2 -- )
+     \ Append filename (addr1 u1) and TODO count (u2) to the CSV file
+     s" todostats.csv" r/o open-file
+     if
+         \ File does not exist, create it and write the header
+         s" todostats.csv" r/w create-file throw >r
+         s" Filename,TODO Count" r@ write-line throw
+     else
+         \ File exists, open it for appending
+         drop
+         s" todostats.csv" r/w open-file throw >r
+     then
+
+        r> close-file throw ;
+
+: todos-to-csv ( addr1 u1 -- )
+    \ Process the file (addr1 u1) and append the results to the CSV file
+    2dup todos-in-file \ Get the count of TODOs
+    append-to-csv ;
