@@ -38,16 +38,24 @@
 \ TODO: Statistics reporting from csv file
 : append-to-csv ( addr1 u1 u2 -- )
      \ Append filename (addr1 u1) and TODO count (u2) to the CSV file
-     s" todostats.csv" r/o open-file
-     if
-         \ file does not exist
-         s" todostats.csv" r/w create-file throw >r
-         s" Filename,TODO Count" r@ write-line throw
-     else
-         drop
-         s" todostats.csv" r/w open-file throw >r
-     then
+    s" todostats.csv" r/o open-file
+        if
+            \ File does not exist
+            s" todostats.csv" r/w create-file throw >r
+            s" Filename,TODO Count" r@ write-line throw
+        else
+            drop
+            s" todostats.csv" r/w open-file throw >r
+            r@ file-size throw r@ reposition-file throw
+            0
+        then
 
+        \ Prepare the TODO count as a string
+        base @ >r decimal
+        <# #s #> r> base !
+
+        \ Write the filename and TODO count to the CSV file
+        r@ write-line throw
         r> close-file throw ;
 
 : todos-to-csv ( addr1 u1 -- )
