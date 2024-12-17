@@ -17,7 +17,7 @@ MAX-PATH-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir-st
 : dir? ( addr1 u1 -- f )
 	\ Return -1 if string specified by addr1 u1 is the name of a directory
 	2dup special-dir?  ( addr1 u1 f )
-	if                    \ Either "." or ".."
+	if                 \ Either "." or ".."
 		2drop -1 exit
 	endif
 	open-dir 0= ( wdirid f )
@@ -60,22 +60,32 @@ MAX-PATH-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir-st
 	\ Recursively find entries in directory and execute xt for each
 	\ xt should have signature ( addr1 u1 -- ) where addr1 u1 represents the path
 	addr1 u1 open-dir throw ( wdirid )
-	begin                   ( wdirid )
+	( wdirid ) case
 		dup read-dir-str throw ( wdirid addr2 u2 )
-		dup 0=                ( wdirid addr2 u2 f ) \ Check if we got an empty entry
-		if
-			\ Finished with dir
+
+		dup 0=                 ( wdirid addr2 u2 f ) \ Check if we got an empty entry
+		?of
+			\ Finished with dir, close it, empty stack and exit
 			2drop close-dir throw
-			exit
-		endif
-		addr1 u1 2swap concat-path ( wdirid addr3 u3 ) \ Get full relative path
-		2dup dir? ( wdirid addr3 u3 f )
-		if  \ Directory
-			( wdirid addr3 u3 )
+		endof
+
+		2dup hidden? ( wdirid addr2 u2 f )  \ Check if entry is hidden
+		?of
+			\ Entry hidden, ignore it and jump back to case
+			2drop  ( wdirid )
+		contof
+
+		addr1 u1 2swap concat-path ( wdirid addr3 u3 )   \ Get full relative path
+		2dup          ( wdirid addr3 u3 addr3 u3 )
+		dir?                  ( wdirid addr3 u3 f ) \ Check if path is directory
+
+		?of ( wdirid addr3 u3 )
+			\ Directory, pass xt to recursive call
 			xt walk-dir ( wdirid )
-		else \ Not a directory (file/symlink)
-			( wdirid addr3 u3 )
-			xt execute ( wdirid )
-		endif
-	again
-	close-dir throw ;
+		contof
+		
+		( wdirid addr3 u3 xt )
+		xt execute \ Not a directory, execute xt on filename
+		( wdirid )
+	next-case
+	;
