@@ -9,7 +9,7 @@ MAX-PATH-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir-st
 
 : special-dir? ( addr1 u1 -- f )
 	\ Return true if filename specified by addr1 u1 is either "." or ".."
-	\ TODO: compare to path-basename
+	\ TODO: compare to basename
 	2dup s" ." str= ( addr1 u1 f )
 	-rot s" .." str= ( f f )
 	or ;
@@ -50,25 +50,32 @@ MAX-PATH-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir-st
 	0> filename-buffer and ( u2 wior addr1 ) \ if no entries left bitwise u2 & addr=0
 	-rot ( addr1 u2 wior ) ;
 
-\ TODO: Bug due to not using full file paths
+: concat-path {: addr1 u1 addr2 u2 -- addr3 u3 :}
+	\ Join two paths on a slash
+	addr1 u1 s" /" s+
+	addr2 u2 s+
+;
+
 : walk-dir {: addr1 u1 xt :} recursive
 	\ Recursively find entries in directory and execute xt for each
 	\ xt should have signature ( addr1 u1 -- ) where addr1 u1 represents the path
 	addr1 u1 open-dir throw ( wdirid )
-	begin
-		dup read-dir-str -rot ( wdirid wior addr1 u1 )
-		cr ...
-		2dup addr1 u1 s" /" s+ 2swap s+ dir? ( wdirid wior addr1 u1 f )           \ Is this a directory?
+	begin                   ( wdirid )
+		dup read-dir-str throw ( wdirid addr2 u2 )
+		dup 0=                ( wdirid addr2 u2 f ) \ Check if we got an empty entry
 		if
-			2dup special-dir? 0= \ Ignore dirs . and ..
-			if
-				cr s" recursing" type
-				cr ...
-				xt walk-dir \ Recurse on this directory
-			endif
-		else \ File (or symlink?)
-			cr ...
-			xt execute ( wdirid wior )
+			\ Finished with dir
+			2drop close-dir throw
+			exit
 		endif
-	until
+		addr1 u1 2swap concat-path ( wdirid addr3 u3 ) \ Get full relative path
+		2dup dir? ( wdirid addr3 u3 f )
+		if  \ Directory
+			( wdirid addr3 u3 )
+			xt walk-dir ( wdirid )
+		else \ Not a directory (file/symlink)
+			( wdirid addr3 u3 )
+			xt execute ( wdirid )
+		endif
+	again
 	close-dir throw ;
