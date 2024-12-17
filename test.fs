@@ -13,4 +13,4 @@ execute
 
 : print cr type ;
 
-s" code" ' print walk-dir
+\ s" code" ' print walk-dir
