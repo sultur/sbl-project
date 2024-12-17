@@ -1,16 +1,19 @@
 
-\ TODO: Make this non-recursive
-: count-substr {: addr1 u1 addr2 u2 -- u3 :} recursive
+: count-substr {: addr1 u1 addr2 u2 -- u3 :}
 	\ Counts how often string specified by addr2 u2 occurs
 	\ in string specified by addr1 u1
-	addr1 u1 addr2 u2 search ( a3 u3 f )
-	if                               \ Found string, recurse on rest
-		u2 safe/string ( a4 u4 )     \ Remove match at beginning of rest of text
-		addr2 u2 count-substr ( u )  \ How many times a2 u2 occurs in rest of text
-		1+                           \ Plus the one we found first
-	else
-		2drop 0 ( 0 )       \ String occurs zero times in text
-	endif ;
+	0 addr1 u1 addr2 u2
+	( u addr1 u1 addr2 u2 ) case
+		search ( u a3 u3 f )
+		0=
+		?of \ No more occurrences
+			2drop ( u )
+		endof
+		( u a3 u3 ) \ Found string, increment counter and repeat
+		rot 1+ -rot ( u+1 a3 u3 ) \ Inc counter
+		u2 safe/string  ( u+1 a4 u4 ) \ Remove match at beginning of rest of text
+		addr2 u2  ( u+1 a4 u4 a2 u2 ) \ Find next matching substring in remaining of text
+	next-case ;
 
 : todos-in-file ( addr1 u1 -- u2 )
 	\ addr1 u1 is a filename, returns number of "TODO"s in the file
