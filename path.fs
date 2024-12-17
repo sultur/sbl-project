@@ -9,9 +9,8 @@ MAX-PATH-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir-st
 
 : special-dir? ( addr1 u1 -- f )
 	\ Return true if filename specified by addr1 u1 is either "." or ".."
-	\ TODO: compare to basename
-	2dup s" ." str= ( addr1 u1 f )
-	-rot s" .." str= ( f f )
+	2dup basename s" ." str= ( addr1 u1 f )
+	-rot basename s" .." str= ( f f )
 	or ;
 
 : dir? ( addr1 u1 -- f )
