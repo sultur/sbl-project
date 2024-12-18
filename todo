@@ -1,0 +1,27 @@
+#! /usr/bin/gforth
+
+require path.fs
+require code.fs
+
+: print-todos ( addr1 u1 -- )
+	\ Print filepath along with the number of TODOs in the file
+	2dup todos-in-file -rot ( u2 addr1 u1 )
+	tuck type ( u2 u1 )
+	25 swap - .r     \ Print to-do number aligned at col 25 (subtract path len)
+	cr
+;
+
+: or-next-arg ( addr1 u1 -- addr1 u1 )
+	\ If next-arg returns a string, replace string on top of stack, otherwise do nothing
+	next-arg dup \ Check for CLI argument
+	if \ Arg provided
+		2swap
+	endif
+	2drop \ Drop either #0 #0 if no argument or string on top of stack if argument found
+;
+s" /code" or-next-arg \ Check CLI arg, default to /code
+' print-todos \ Place xt on stack (placeholder for actual functionality
+walk-dir
+
+bye
+
