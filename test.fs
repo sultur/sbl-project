@@ -1,6 +1,7 @@
 
 \ TODO: Add some more tests
 
+\ count-substr test
 :noname
 	s" Here there is a TODO, and another TODO"
 	s" TODO"

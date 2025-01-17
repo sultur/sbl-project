@@ -1,25 +1,25 @@
 #! /usr/bin/gforth
+\ Counts number of "TODO" items in code and appends to ./todo-stats.csv
 
 require path.fs
-require code.fs
+require todolib.fs
 
 : print-todos ( addr1 u1 -- )
 	\ Print filepath along with the number of TODOs in the file
 	2dup todos-in-file -rot ( u2 addr1 u1 )
-	tuck type ( u2 u1 )
-	25 swap - .r     \ Print to-do number aligned at col 25 (subtract path len)
+	tuck type               ( u2 u1 )
+	25 swap - .r            \ Print to-do number aligned at col 25 (subtract path len)
 	cr
 ;
 
-: or-next-arg ( addr1 u1 -- addr1 u1 )
+: or-next-arg ( addr1 u1 -- addr2 u2 )
 	\ If next-arg returns a string, replace string on top of stack, otherwise do nothing
 	next-arg dup \ Check for CLI argument
-	if \ Arg provided
-		2swap
-	endif
-	2drop \ Drop either #0 #0 if no argument or string on top of stack if argument found
+	if 2swap endif \ If CLI argument found, swap default string to top of stack
+	2drop \ Drop either #0 #0 if no argument found or default string if argument found
 ;
-s" /code" or-next-arg \ Check CLI arg, default to /code
+
+s" ." or-next-arg \ Check CLI arg, default to .
 ' print-todos \ Place xt on stack (placeholder for actual functionality
 walk-dir
 

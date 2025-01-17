@@ -51,40 +51,38 @@ MAX-PATH-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir-st
 
 : concat-path {: addr1 u1 addr2 u2 -- addr3 u3 :}
 	\ Join two paths on a slash
-	addr1 u1 s" /" s+
-	addr2 u2 s+
+	addr1 u1 s" /" s+ addr2 u2 s+
 ;
 
-: walk-dir {: addr1 u1 xt :} recursive
-	\ Recursively find files in directory and execute xt for each
-	\ filepath xt should have signature ( addr2 u2 -- ) where addr2 u2
-	\ represents the full path relative to directory represented by addr1 u1.
+: prepend-path ( addr1 u1 addr2 u2 -- addr3 u3 )
+	2swap concat-path
+;
+
+: walk-dir {: addr1 u1 xt -- :} recursive
+	\ Recursively finds files in directory and executes xt for each filepath.
+	\ xt should have signature ( addr2 u2 -- ) where addr2 u2 represents
+	\ the full path relative to directory represented by addr1 u1.
 	addr1 u1 open-dir throw
 	( wdirid ) case
 		dup read-dir-str throw ( wdirid addr2 u2 )
 
 		dup 0=                 ( wdirid addr2 u2 f ) \ Check if we got an empty entry
-		?of
-			\ Finished with dir, close it, empty stack and exit
-			2drop close-dir throw ( )
-		endof
+		?of 2drop close-dir throw endof \ Finished dir, close it and exit
 
-		2dup hidden? ( wdirid addr2 u2 f )  \ Check if entry is hidden
-		?of
-			\ Entry hidden, ignore it and jump back to case
+		2dup hidden? ( wdirid addr2 u2 f )
+		?of \ Hidden entry, ignore it and jump back to case
 			2drop  ( wdirid )
 		contof
 
-		addr1 u1 2swap concat-path ( wdirid addr3 u3 )   \ Get full relative path
-		2dup dir?                  ( wdirid addr3 u3 f ) \ Check if path is directory
+		addr1 u1 prepend-path   ( wdirid addr3 u3 )   \ Construct full relative path
+		2dup dir?               ( wdirid addr3 u3 f ) \ Check if path is directory
 
-		?of ( wdirid addr3 u3 )
-			\ Directory, pass xt to recursive call
-			xt walk-dir ( wdirid )
+		?of \ Directory, pass xt to recursive call
+			xt ( wdirid addr3 u3 xt )
+			walk-dir ( wdirid )
 		contof
 		
 		( wdirid addr3 u3 )
 		xt execute \ Not a directory, execute xt on filename
 		( wdirid )
-	next-case
-	;
+	next-case ;

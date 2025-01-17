@@ -1,0 +1,6 @@
+#! /usr/bin/gforth
+\ Reads ./todo-stats.csv and prints statistics
+
+require todolib.fs
+
+bye

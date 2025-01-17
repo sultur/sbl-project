@@ -1,4 +1,6 @@
 
+\ Functions specific to counting to-do's
+
 : count-substr {: addr1 u1 addr2 u2 -- u3 :}
 	\ Counts how often string specified by addr2 u2 occurs
 	\ in string specified by addr1 u1
