@@ -24,3 +24,44 @@
 
 \ TODO: Statistics reporting from csv file
 \ TODO: use getenv to set csv file name?
+
+: append-to-csv ( addr1 u1 u2 -- )
+     \ Append filename (addr1 u1) and TODO count (u2) to the CSV file
+    s" todostats.csv" r/o open-file
+        if
+            \ File does not exist
+            s" todostats.csv" r/w create-file throw >r
+            s" Filename,TODO Count,timestamp" r@ write-line throw
+        else
+            drop
+            s" todostats.csv" r/w open-file throw >r
+            r@ file-size throw r@ reposition-file throw
+            0
+        then
+
+        \ Prepare the TODO count as a string
+        base @ >r decimal
+        <# #s #> r> base !
+
+        \ Write the filename and TODO count to the CSV file
+        2swap
+        r@ write-file throw 
+        s" ," r@ write-file throw
+
+        \ Write the second string (addr2 u2)
+        r@ write-file throw
+
+        s" ," r@ write-file throw
+
+        utime 
+        base @ >r decimal
+        <# # #s #> r> base !
+        r@ write-file throw
+        
+        s" " r@ write-line throw
+        r> close-file throw ;
+
+: todos-to-csv ( addr1 u1 -- )
+    \ Process the file (addr1 u1) and append the results to the CSV file
+    2dup todos-in-file \ Get the count of TODOs
+    append-to-csv ;
