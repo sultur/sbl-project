@@ -57,10 +57,10 @@ MAX-PATH-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir-st
 	2swap concat-path ;
 
 : exec-on-fstree {: addr1 u1 xt -- :} recursive
-	\ addr1 u1 is a path to a directory,
-	\ execute xt on its files and recurse into subdirectories
-	\ xt should have signature ( addr1 u1 -- ) where addr1 u1 represents
-	\ the full path relative to first invocation
+	\ addr1 u1 is a path to a directory
+	\ Executes xt on its files and recurses into subdirectories
+	\ xt should have signature ( addr1 u1 -- ) where addr1 u1 is a relative filepath
+
 	addr1 u1 open-dir throw
 	( wdirid ) case
 		dup read-dir-str throw ( wdirid addr2 u2 )
