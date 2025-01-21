@@ -1,6 +1,7 @@
 
 s" todostats.csv" 2Constant CSVFILE
 variable csvfd
+0 csvfd !
 
 \ Helper functions
 
@@ -35,7 +36,7 @@ variable csvfd
 		>string-execute
 	endif ( addr1 u1 ) ;
 
-\ CSV handling
+\ CSV Writing
 
 : create-statsfile ( -- wfileid )
 	\ Create todostats.csv
@@ -49,12 +50,12 @@ variable csvfd
 	dup file-size throw ( wfileid ud )
 	rot reposition-file throw ;
 
-: open-statsfile ( -- wfileid )
+: open-csv-append ( -- wfileid )
 	CSVFILE file-status ( wfam wior )
 	case
 		2dup 2 0 d= \ File exists
 		?of 2drop CSVFILE r/w open-file throw ( wfileid )
-			dup reposition-to-end ( wfileid ) endof
+		dup reposition-to-end endof
 
 		2dup 0 -514 d= \ File doesn't exist
 		?of 2drop create-statsfile ( wfileid ) endof
@@ -69,7 +70,7 @@ variable csvfd
 	csvfd @ ( wfileid )
 	dup 0= ( wfileid f )
 	if \ Hasn't been initialized, create csv file and save fd to csvfd
-		drop open-statsfile ( wfileid )
+		drop open-csv-append ( wfileid )
 		dup csvfd ! ( wfileid ) \ Save fileid to csvfd variable
 	endif ( wfileid ) ;
 
@@ -93,3 +94,78 @@ variable csvfd
 		\ Write to CSV file
 		csvfileid write-line throw
 	endif ;
+
+\ CSV Reporting
+
+3 Constant BLOCKSIZE
+
+variable stats \ Heap buffer (addr1,u1,addr2 blocks)
+BLOCKSIZE 100 * 1+ cells allocate throw \ 100 file limit for now, we could increase this or expand dynamically TODO
+stats !
+\ Write size to stats
+0 stats @ !
+
+: file-count ( -- u ) stats @ @ ; \ Current number of files in stats
+: as-blocks ( u -- u ) BLOCKSIZE * cells ;
+: next-free-addr ( -- addr )
+	stats @ cell+ ( addr )
+	file-count as-blocks + ( addr )
+;
+: inc-file-count ( -- ) stats @ @ 1+ stats @ ! ;
+: file-block-start ( -- addr ) stats @ cell+ ;
+: block->filename ( addr -- addr1 u1 ) 2@ ;
+: block->third ( addr -- addr2 ) cell+ cell+ @ ;
+
+: add-file-to-stats ( addr1 u1 -- addr2 )
+	next-free-addr ( ... addr )
+	-rot third ( addr addr1 u1 addr )
+	2! ( addr )
+	dup cell+ cell+ 0 swap !
+	inc-file-count
+;
+: find-file-in-stats {: addr1 u1 -- addr2 wior :}
+	\ wior=-1 if file was found, then addr2 is address of its block, otherwise wior=0
+	file-block-start ( addr2 )
+	file-count ( addr2 u ) \ Files in stats buffer
+	0 u+do  ( addr2 )
+		dup 2@ ( addr2 addr3 u3 ) \ Get filename
+		addr1 u1 str= if true unloop exit ( addr2 -1 ) endif \ Found address of file in stats
+		BLOCKSIZE cells + \ Increment by block size cells
+	loop ( addr2 )
+	false ( addr2 0 )
+;
+
+: emplace-file-in-stats ( addr1 u1 -- addr2 )
+	2dup find-file-in-stats
+	if 2nip exit endif
+	drop add-file-to-stats \ No address found, add file to stats
+;
+
+: print-stats ( -- )
+	file-block-start
+	file-count 0 u+do
+		dup block->filename type space dup block->third . cr
+		BLOCKSIZE cells +
+	loop
+	drop
+;
+
+create csvlinebuf 0 , 0 , 0 , 0 ,
+
+: clear-linebuf ( -- )
+	csvlinebuf 2 cells + @ ( u )
+	csvlinebuf 2@ ( ... addr1 u1 )
+	emplace-file-in-stats ( ... addr2 )
+	2 cells + ( u addr3 )
+	+!
+;
+
+: analyze-csv-cell ( addr1 u1 u2 u3 )	
+	1- 0= if drop 2drop exit endif \ Skip header line
+	case \ Each of the columns
+		0 of csvlinebuf 2! endof \ Filename cell
+		1 of s>number? 2drop csvlinebuf 2 cells + ! endof \ todo-count
+		2 of s>number? 2drop csvlinebuf 3 cells + ! clear-linebuf endof \ timestamp
+	endcase
+;
+

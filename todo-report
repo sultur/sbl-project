@@ -1,13 +1,19 @@
 #! /usr/bin/gforth
-\ Reads ./todostats.csv and prints statistics
+\ Reads STATSFILE and prints statistics
 
 require todolib.fs
 
-: parse-cell ( addr1 u1 u2 u3 )
-	s" line:" type space . space
-	s" column:" type space . space
-	s" cell:" type space type cr
+: is-help-flag? {: addr1 u1 -- f :}
+	addr1 u1 s" -h" str= ( f )
+	addr1 u1 s" --help" str= ( f f )
+	or ( f )
 ;
+
+: print-usage ( -- )
+	s" Usage: todo-report [-h/--help]" type cr cr
+	#tab emit s" Parses ./" type CSVFILE type space s" and prints statistics" type cr
+;
+
 
 \ Per file stats:
 \ Highest number of TODOs
@@ -15,9 +21,19 @@ require todolib.fs
 \ Rate of TODOs being removed (+/- x TODOs per day/week)
 \ Most busy period
 
+
 : main ( -- )
-	CSVFILE ['] parse-cell ( addr1 u1 xt )
+	\ Go through args, if help flag provided, print usage and exit
+	argc @ 1 u+do
+		i arg is-help-flag? ( f )
+		if print-usage unloop exit endif
+	loop
+
+	\ Read CSV file
+	CSVFILE ['] analyze-csv-cell
 	read-csv
+
+	print-stats
 ;
 
 main bye
