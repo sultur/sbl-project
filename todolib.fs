@@ -1,26 +1,25 @@
 
 \ Functions specific to counting to-do's (and helper functions)
 
-s" todostats.csv" 2Constant CSVFILE
-variable csvfd
+s" todo.stats" 2Constant STATSFILE
+variable statsfd
 
 \ Helper functions
 
-\ TODO: Refactor
 : count-substr {: addr1 u1 addr2 u2 -- u3 :}
 	\ Counts how often string specified by addr2 u2 occurs
 	\ in string specified by addr1 u1
-	0 addr1 u1 addr2 u2
-	( u addr1 u1 addr2 u2 ) case
-		search 0= ( u a3 u3 f )
-		?of \ No more occurrences
-			2drop ( u )
-		endof
-		( u a3 u3 ) \ Found string, increment counter and repeat
-		rot 1+ -rot ( u+1 a3 u3 ) \ Inc counter
-		u2 safe/string  ( u+1 a4 u4 ) \ Remove match at beginning of rest of text
-		addr2 u2  ( u+1 a4 u4 a2 u2 ) \ Find next matching substring in remaining of text
-	next-case ;
+	0 addr1 u1
+	case
+		addr2 u2 search ( u addr3 u3 f ) \ Remaining text and flag on stack
+		?of
+			\ Found string, increment counter and repeat
+			rot 1+ -rot ( u+1 addr3 u3 ) \ Inc counter
+			u2 safe/string  ( u addr4 u4 ) \ Remove match at beginning of rest of text
+		contof
+	endcase   \ Drops one value
+	drop ( u ) \ Drops one value
+;
 
 : join-on-comma ( addr1 u1 addr2 u2 -- addr3 u3 )
 	\ Join 2 strings on a comma
@@ -40,12 +39,10 @@ variable csvfd
 		>string-execute
 	endif ( addr1 u1 ) ;
 
-\ CSV handling
+\ Statsfile handling
 
 : create-statsfile ( -- wfileid )
-	\ Create todostats.csv
-	CSVFILE r/w create-file throw ( wfileid )
-	\ Write CSV header
+	STATSFILE r/w create-file throw ( wfileid )
 	s" filename,todocount,timestamp" third ( wfileid addr1 u1 wfileid )
 	write-line throw ;
 
@@ -55,14 +52,14 @@ variable csvfd
 	rot reposition-file throw ;
 
 : open-statsfile ( -- wfileid )
-	CSVFILE file-status ( wfam wior )
+	STATSFILE file-status ( wfam wior )
 	case
 		2dup 2 0 d= \ File exists
-		?of 2drop CSVFILE r/w open-file throw ( wfileid )
+		?of 2drop STATSFILE r/w open-file throw ( wfileid )
 			dup reposition-to-end ( wfileid ) endof
 
-		2dup 0 -514 d= \ File doesn't exist
-		?of 2drop create-statsfile ( wfileid ) endof
+		0 -514 d= \ File doesn't exist
+		?of create-statsfile ( wfileid ) endof
 
 		\ Some other error
 		s" Error when opening todostats.csv" type cr
@@ -71,11 +68,11 @@ variable csvfd
 
 : csvfileid ( -- wfileid )
 	\ Returns the file id for the csv file (singleton)
-	csvfd @ ( wfileid )
+	statsfd @ ( wfileid )
 	dup 0= ( wfileid f )
-	if \ Hasn't been initialized, create csv file and save fd to csvfd
+	if \ Hasn't been initialized, create csv file and save fd to statsfd
 		drop open-statsfile ( wfileid )
-		dup csvfd ! ( wfileid ) \ Save fileid to csvfd variable
+		dup statsfd ! ( wfileid ) \ Save fileid to statsfd variable
 	endif ( wfileid ) ;
 
 : todos-in-file ( addr1 u1 -- u2 )
@@ -84,7 +81,7 @@ variable csvfd
 
 : todos-to-csv {: addr1 u1 -- :}
 	\ Count todo's in the file (addr1 u1) (excluding todostats.csv) and append the results to the CSV file
-	addr1 u1 CSVFILE string-suffix? 0= ( addr1 u1 f ) \ Make sure this isn't the CSV file, we skip that
+	addr1 u1 STATSFILE string-suffix? 0= ( addr1 u1 f ) \ Make sure this isn't the stats file, we skip that
 	if
 		addr1 u1
 		\ Count number of todos, convert to string
@@ -95,6 +92,6 @@ variable csvfd
 		join-on-comma ( addr1 u1 )
 		\ Get seconds since epoch, turn to string and join on comma
 		seconds-since-epoch u->str join-on-comma ( addr1 u1 )
-		\ Write to CSV file
+		\ Write to stats file
 		csvfileid write-line throw
 	endif ;
