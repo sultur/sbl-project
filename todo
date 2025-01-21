@@ -22,28 +22,6 @@ require todolib.fs
 	#tab emit s" and writes to ./todostats.csv" type cr
 ;
 
-: print-error ( addr1 u1 -- )
-	s" Error:" type bl emit
-	type cr
-;
-
-: get-path-argument ( -- addr1 u1 )
-	s" ." or-next-arg ( addr1 u1 ) \ Check CLI arg, default to .
-
-	2dup is-help-flag?
-	if \ Flag --help/-h given, print usage and exit
-		print-usage bye
-	endif
-	( addr1 u1 )
-
-	\ Check first arg: is it a directory path?
-	2dup dir? 0= ( addr1 u1 f )
-	if
-		s" Not a directory: " 2swap s+
-		\ Print 'Error: Not a directory: <arg>' and exit
-		print-error bye
-	endif
-;
 
 : main ( -- )
 	\ Go through args, if help flag provided, print usage and exit
@@ -53,22 +31,15 @@ require todolib.fs
 	loop
 
 	argc @ 1- 0= if \ No argument provided, run on current directory
-		s" ." ['] todos-to-csv ( addr1 u1 xt ) path-recurse-exec exit
+		s" ." ['] todos-to-csv ( addr1 u1 xt ) exec-on-fstree exit
 	endif
 
 	\ Iterate through given arguments
 	begin
 	next-arg 2dup 0 0 d<> while
 		['] todos-to-csv ( addr1 u1 xt )
-		path-recurse-exec
+		exec-on-fstree
     repeat
-	2drop
-
-	\ 2dup dir?
-	\ if \ If argument is dir recurse on it
-	\ 	['] todos-to-csv ( addr1 u1 xt ) \ Place xt on stack
-	\ 	walk-dir
-	\ endif \ If argument is file, only append data for the provided file
-;
+	2drop ;
 
 main bye

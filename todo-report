@@ -1,7 +1,23 @@
 #! /usr/bin/gforth
-\ Reads ./todo-stats.csv and prints statistics
+\ Reads ./todostats.csv and prints statistics
 
 require todolib.fs
 
-\ TODO: Statistics reporting from csv file
-bye
+: parse-cell ( addr1 u1 u2 u3 )
+	s" line:" type space . space
+	s" column:" type space . space
+	s" cell:" type space type cr
+;
+
+\ Per file stats:
+\ Highest number of TODOs
+\ Lowest number of TODOs
+\ Rate of TODOs being removed (+/- x TODOs per day/week)
+\ Most busy period
+
+: main ( -- )
+	CSVFILE ['] parse-cell ( addr1 u1 xt )
+	read-csv
+;
+
+main bye

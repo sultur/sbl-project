@@ -51,16 +51,13 @@ MAX-PATH-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir-st
 
 : concat-path {: addr1 u1 addr2 u2 -- addr3 u3 :}
 	\ Join two paths on a slash
-	addr1 u1 s" /" s+ addr2 u2 s+
-;
+	addr1 u1 s" /" s+ addr2 u2 s+ ;
 
 : prepend-path ( addr1 u1 addr2 u2 -- addr3 u3 )
-	2swap concat-path
-;
+	2swap concat-path ;
 
-: path-recurse-exec {: addr1 u1 xt -- :} recursive
-	\ If addr1 u1 is a path to file, execute xt on it
-	\ If addr1 u1 is a path to a directory,
+: exec-on-fstree {: addr1 u1 xt -- :} recursive
+	\ addr1 u1 is a path to a directory,
 	\ execute xt on its files and recurse into subdirectories
 	\ xt should have signature ( addr1 u1 -- ) where addr1 u1 represents
 	\ the full path relative to first invocation
@@ -81,7 +78,7 @@ MAX-PATH-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir-st
 
 		?of \ Directory, pass xt to recursive call
 			xt ( wdirid addr3 u3 xt )
-			path-recurse-exec ( wdirid )
+			exec-on-fstree ( wdirid )
 		contof
 		
 		( wdirid addr3 u3 )
