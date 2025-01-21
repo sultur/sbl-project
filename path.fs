@@ -17,13 +17,13 @@ MAX-PATH-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir-st
 	\ Return -1 if string specified by addr1 u1 is the name of a directory
 	2dup special-dir?  ( addr1 u1 f )
 	if                 \ Either "." or ".."
-		2drop -1 exit
+		2drop true exit ( f )
 	endif
 	open-dir 0= ( wdirid f )
 	if \ open-dir succeeded, it is a directory, close it again
-		close-dir throw -1
+		close-dir throw true
 	else \ Not a dir, return 0
-		drop 0
+		drop false
 	endif
 ;
 
@@ -58,10 +58,12 @@ MAX-PATH-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir-st
 	2swap concat-path
 ;
 
-: walk-dir {: addr1 u1 xt -- :} recursive
-	\ Recursively finds files in directory and executes xt for each filepath.
-	\ xt should have signature ( addr2 u2 -- ) where addr2 u2 represents
-	\ the full path relative to directory represented by addr1 u1.
+: path-recurse-exec {: addr1 u1 xt -- :} recursive
+	\ If addr1 u1 is a path to file, execute xt on it
+	\ If addr1 u1 is a path to a directory,
+	\ execute xt on its files and recurse into subdirectories
+	\ xt should have signature ( addr1 u1 -- ) where addr1 u1 represents
+	\ the full path relative to first invocation
 	addr1 u1 open-dir throw
 	( wdirid ) case
 		dup read-dir-str throw ( wdirid addr2 u2 )
@@ -74,12 +76,12 @@ MAX-PATH-LENGTH buffer: filename-buffer ( Buffer which we re-use for read-dir-st
 			2drop  ( wdirid )
 		contof
 
-		addr1 u1 prepend-path   ( wdirid addr3 u3 )   \ Construct full relative path
+		addr1 u1 2swap concat-path   ( wdirid addr3 u3 )   \ Construct full relative path
 		2dup dir?               ( wdirid addr3 u3 f ) \ Check if path is directory
 
 		?of \ Directory, pass xt to recursive call
 			xt ( wdirid addr3 u3 xt )
-			walk-dir ( wdirid )
+			path-recurse-exec ( wdirid )
 		contof
 		
 		( wdirid addr3 u3 )

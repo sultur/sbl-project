@@ -1,16 +1,7 @@
 #! /usr/bin/gforth
-\ Counts number of "TODO" items in code and appends to ./todo-stats.csv
-
+\ Counts number of "TODO" items in code and appends to ./todostats.csv
 require path.fs
 require todolib.fs
-
-: print-todos ( addr1 u1 -- )
-	\ Print filepath along with the number of TODOs in the file
-	2dup todos-in-file -rot ( u2 addr1 u1 )
-	tuck type               ( u2 u1 )
-	25 swap - .r            \ Print to-do number aligned at col 25 (subtract path len)
-	cr
-;
 
 : or-next-arg ( addr1 u1 -- addr2 u2 )
 	\ If next-arg returns a string, replace string on top of stack, otherwise do nothing
@@ -19,9 +10,65 @@ require todolib.fs
 	2drop \ Drop either #0 #0 if no argument found or default string if argument found
 ;
 
-s" ." or-next-arg \ Check CLI arg, default to .
-' print-todos \ Place xt on stack (placeholder for actual functionality
-walk-dir
+: is-help-flag? {: addr1 u1 -- f :}
+	addr1 u1 s" -h" str= ( f )
+	addr1 u1 s" --help" str= ( f f )
+	or ( f )
+;
 
-bye
+: print-usage ( -- )
+	s" Usage: todo [-h/--help] [directory]" type cr cr
+	#tab emit s" Walks the provided directory (default: .), counts the number of 'TODO's in each file" type cr
+	#tab emit s" and writes to ./todostats.csv" type cr
+;
 
+: print-error ( addr1 u1 -- )
+	s" Error:" type bl emit
+	type cr
+;
+
+: get-path-argument ( -- addr1 u1 )
+	s" ." or-next-arg ( addr1 u1 ) \ Check CLI arg, default to .
+
+	2dup is-help-flag?
+	if \ Flag --help/-h given, print usage and exit
+		print-usage bye
+	endif
+	( addr1 u1 )
+
+	\ Check first arg: is it a directory path?
+	2dup dir? 0= ( addr1 u1 f )
+	if
+		s" Not a directory: " 2swap s+
+		\ Print 'Error: Not a directory: <arg>' and exit
+		print-error bye
+	endif
+;
+
+: main ( -- )
+	\ Go through args, if help flag provided, print usage and exit
+	argc @ 1 u+do
+		i arg is-help-flag? ( f )
+		if print-usage unloop exit endif
+	loop
+
+	argc @ 1- 0= if \ No argument provided, run on current directory
+		s" ." ['] todos-to-csv ( addr1 u1 xt ) path-recurse-exec exit
+	endif
+
+	\ Iterate through given arguments
+	begin
+	next-arg 2dup 0 0 d<> while
+		['] todos-to-csv ( addr1 u1 xt )
+		path-recurse-exec
+    repeat
+	2drop
+
+	\ 2dup dir?
+	\ if \ If argument is dir recurse on it
+	\ 	['] todos-to-csv ( addr1 u1 xt ) \ Place xt on stack
+	\ 	walk-dir
+	\ endif \ If argument is file, only append data for the provided file
+;
+
+main bye

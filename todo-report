@@ -3,4 +3,5 @@
 
 require todolib.fs
 
+\ TODO: Statistics reporting from csv file
 bye

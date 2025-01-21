@@ -10,7 +10,6 @@
 	drop ;
 execute
 
-
 : print-todos ( addr1 u1 -- )
 	\ Print filepath along with the number of TODOs in the file
 	2dup todos-in-file -rot ( u2 addr1 u1 )
