@@ -1,5 +1,5 @@
 #! /usr/bin/gforth
-\ Counts number of "TODO" items in code and appends to ./todostats.csv
+\ Counts number of "TODO" items in code and appends to STATSFILE
 require path.fs
 require todolib.fs
 
@@ -13,7 +13,7 @@ require todolib.fs
 	s" Usage: todo [-h/--help] [directories ...]" type cr cr
 	#tab emit s" Walks the provided directories (default: .)," type cr
 	#tab emit s" counts the number of 'TODO's in each file" type cr
-	#tab emit s" and writes to ./todostats.csv" type cr
+	#tab emit s" and writes to " type STATSFILE type cr
 ;
 
 

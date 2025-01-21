@@ -1,26 +1,21 @@
 
-\ Functions specific to counting to-do's (and helper functions)
-
 s" todostats.csv" 2Constant CSVFILE
 variable csvfd
 
 \ Helper functions
 
-\ TODO: Refactor
 : count-substr {: addr1 u1 addr2 u2 -- u3 :}
 	\ Counts how often string specified by addr2 u2 occurs
 	\ in string specified by addr1 u1
-	0 addr1 u1 addr2 u2
-	( u addr1 u1 addr2 u2 ) case
-		search 0= ( u a3 u3 f )
-		?of \ No more occurrences
-			2drop ( u )
-		endof
-		( u a3 u3 ) \ Found string, increment counter and repeat
-		rot 1+ -rot ( u+1 a3 u3 ) \ Inc counter
-		u2 safe/string  ( u+1 a4 u4 ) \ Remove match at beginning of rest of text
-		addr2 u2  ( u+1 a4 u4 a2 u2 ) \ Find next matching substring in remaining of text
-	next-case ;
+	0 addr1 u1
+	begin
+		addr2 u2 search ( u addr3 u3 f ) \ Remaining text and flag on stack
+		while
+			\ Found string, increment counter and repeat
+			rot 1+ -rot ( u+1 addr3 u3 ) \ Inc counter
+			u2 safe/string  ( u addr4 u4 ) \ Remove match at beginning of rest of text
+	repeat
+	2drop ( u ) ;
 
 : join-on-comma ( addr1 u1 addr2 u2 -- addr3 u3 )
 	\ Join 2 strings on a comma
