@@ -18,16 +18,41 @@ variable csvfd
 	repeat
 	2drop ( u ) ;
 
+: c>str ( c -- addr1 ) here tuck c! 1 ; \ Convert char to string (gets overwritten on next call!)
 : prepend-comma ( addr1 u1 -- addr2 u2 ) s" ," 2swap s+ ;
-: join-on-comma ( addr1 u1 addr2 u2 -- addr3 u3 )
-	\ Join 2 strings on a comma
-	2swap s" ," s+ 2swap s+ ;
+: join-on-str ( addr1 u1 addr2 u2 addr3 u3 -- addr4 u4 )
+	\ Join addr1 u1 and addr2 u2 on string addr3 u3
+	2>r 2swap 2r> s+ 2swap s+ ;
+: join-on-comma ( addr1 u1 addr2 u2 -- addr3 u3 ) s" ," join-on-str ;
+: join-on-space ( addr1 u1 addr2 u2 -- addr3 u3 ) 32 c>str join-on-str ;
+
+: str>u ( addr1 u1 -- u ) s>number? 2drop ; \ Unchecked str to unsigned int conversion
+: u>str ( u1 -- addr2 u2 ) ['] u. >string-execute 1- ; \ Convert unsigned int to string
+
+: zero-pad ( u1 -- addr1 u1 )
+	dup u>str ( u1 addr1 u1 )
+	rot 10 < if s" 0" 2swap s+ endif
+;
+: yyyy-mm-dd ( nyear nmonth nday -- addr1 u1 )
+	u>str rot zero-pad s" -" join-on-str rot zero-pad s" -" join-on-str ;
+: hh:mm ( nhour nmin -- addr1 u1 )
+	zero-pad rot zero-pad s" :" join-on-str ;
 
 : seconds-since-epoch ( -- u1 ) \ Return seconds since epoch
 	utime #1000000 um/mod nip ;
-
-: str->u ( addr1 u1 -- u ) s>number? 2drop ; \ Unchecked str to unsigned int conversion
-: u->str ( u1 -- addr2 u2 ) ['] u. >string-execute 1- ; \ Convert unsigned int to string
+: seconds>str ( u1 -- addr1 u1 )
+	0 ( ud )
+	>time&date&tz ( nsec nmin nhour nday nmonth nyear fdst ndstoff c-addrtz utz )
+	2drop 2drop ( nsec nmin nhour nday nmonth nyear )
+	\ Format YYYY-MM-DD part
+	yyyy-mm-dd ( nsec nmin nhour addr1 u1 )
+	2>r ( nsec nmin nhour )
+	\ Format HH:MM part (skip the seconds)
+	hh:mm ( nsec addr2 u2 )
+	rot drop
+	2r> ( addr2 u2 addr1 u1 )
+	2swap join-on-space ( addr1 u1 )
+;
 
 : quote-if-needed ( addr1 u1 -- addr1 u1 )
 	\ Performs CSV quoting if separator found in string
@@ -84,13 +109,13 @@ variable csvfd
 	if
 		addr1 u1
 		\ Count number of todos, convert to string
-		2dup todos-in-file u->str ( addr1 u1 addr2 u2 )
+		2dup todos-in-file u>str ( addr1 u1 addr2 u2 )
 		\ Before we join, check if we need to quote filepath
 		2swap quote-if-needed 2swap ( addr1 u1 addr2 u2 )
 		\ Join todo count with comma to filename
 		join-on-comma ( addr1 u1 )
 		\ Get seconds since epoch, turn to string and join on comma
-		seconds-since-epoch u->str join-on-comma ( addr1 u1 )
+		seconds-since-epoch u>str join-on-comma ( addr1 u1 )
 		\ Write to CSV file
 		csvfileid write-line throw
 	endif ;
@@ -131,8 +156,6 @@ variable curr-index
 ;
 
 \ Per file stats:
-\ Highest number of TODOs
-\ Lowest number of TODOs
 \ Rate of TODOs being removed (+/- x TODOs per day/week)
 \ Most busy period
 
@@ -156,8 +179,8 @@ variable max-timestamp
 : get-next-measurement ( addr1 u1 -- addr1 u1 u2 u3 )
 	\ A measurement is a (todo-count, timestamp) pair
 	\ Returns remaining string, todo-count and timestamp
-	next-csv str->u -rot ( u2 addr1 u1 )
-	next-csv str->u -rot ( u2 u3 addr1 u1 )
+	next-csv str>u -rot ( u2 addr1 u1 )
+	next-csv str>u -rot ( u2 u3 addr1 u1 )
 	2swap
 ;
 
@@ -204,7 +227,7 @@ variable max-timestamp
 
 	cr
 	s" File:" print type cr
-	tab s" Min. TODOs:" print min-todo @ u. space s" at" print min-timestamp @ u. cr
-	tab s" Max. TODOs:" print max-todo @ u. cr
+	tab s" Min. TODOs:" print min-todo @ u. space s" at" print min-timestamp @ seconds>str type cr
+	tab s" Max. TODOs:" print max-todo @ u. space s" at" print max-timestamp @ seconds>str type cr
 	cr
 ;
