@@ -64,7 +64,7 @@ variable csvfd
 \ CSV Writing
 
 : create-statsfile ( -- wfileid )
-	STATSFILE r/w create-file throw ( wfileid )
+	CSVFILE r/w create-file throw ( wfileid )
 	s" filename,todocount,timestamp" third ( wfileid addr1 u1 wfileid )
 	write-line throw ;
 
@@ -90,7 +90,7 @@ variable csvfd
 
 : csvfileid ( -- wfileid )
 	\ Returns the file id for the csv file (singleton)
-	statsfd @ ( wfileid )
+	csvfd @ ( wfileid )
 	dup 0= ( wfileid f )
 	if \ Hasn't been initialized, create csv file and save fd to csvfd
 		drop open-csv-append ( wfileid )
@@ -103,7 +103,7 @@ variable csvfd
 
 : todos-to-csv {: addr1 u1 -- :}
 	\ Count todo's in the file (addr1 u1) (excluding todostats.csv) and append the results to the CSV file
-	addr1 u1 STATSFILE string-suffix? 0= ( addr1 u1 f ) \ Make sure this isn't the stats file, we skip that
+	addr1 u1 CSVFILE string-suffix? 0= ( addr1 u1 f ) \ Make sure this isn't the stats file, we skip that
 	if
 		addr1 u1
 		\ Count number of todos, convert to string
