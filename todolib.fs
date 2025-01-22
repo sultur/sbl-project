@@ -157,22 +157,27 @@ variable curr-index
 \ Rate of TODOs being removed (+/- x TODOs per day/week)
 \ Most busy period
 
+variable first-timestamp
 variable last-timestamp
 variable last-todocount
+
 variable min-todo
 variable min-timestamp
+
 variable max-todo
 variable max-timestamp
+
 variable sum-todo
 variable n-todo
 
 variable max-delta
 2variable delta-period
-variable avg-delta \ TODO: !
+
+variable sum-delta
 \ TODO: Filter by start time (last week, last month, last year)
 
 : reset-vars ( -- ) \ Reset variables used for statistics calculations
-	0 last-timestamp ! 0 last-todocount !
+	0 first-timestamp ! 0 last-timestamp ! 0 last-todocount !
 
 	-1 min-todo ! 0 min-timestamp !
 	0 max-todo ! 0 max-timestamp !
@@ -210,23 +215,25 @@ variable avg-delta \ TODO: !
 
 : update-sum/count ( u1 -- ) sum-todo +! 1 n-todo +! ;
 
-: update-delta {: u1 u2 -- :}
-	\ Update max delta
-	last-todocount @ u1 - ( u ) \ How much did it increase/decrease?
-	\ Update vars if delta was greater
+: update-deltas {: u1 u2 -- :}
+	\ Get delta, or change, from last measurement
+	last-todocount @ u1 - ( d ) \ How much did it increase/decrease?
+	dup sum-delta +! \ Add to sum-delta
+
+	\ Update vars if absolute delta was greater
 	dup abs max-delta @ abs >= ( f )
 	if dup max-delta ! last-timestamp @ u2 delta-period 2! endif
 	drop
 ;
 
-
 : parse-measurement {: u1 u2 -- :}
+	first-timestamp @ 0= if u2 first-timestamp ! endif
 	\ Takes in (u1=todocount u2=timestamp), updates variables and calculates stats
 	u2 last-timestamp @ < if s" Timestamp decreased, please sort the csv" type cr bye endif
 
-	u1 u2 update-min/max
-	u1 update-sum/count
-	last-timestamp @ 0> if u1 u2 update-delta endif \ We don't update delta in the first measurement
+	u1 u2 update-min/max ( )
+	u1 update-sum/count ( )
+	last-timestamp @ 0> if u1 u2 update-deltas endif \ We don't update delta in the first measurement
 
 	\ Save variables for next iteration
 	u2 last-timestamp ! u1 last-todocount !
@@ -249,8 +256,8 @@ variable avg-delta \ TODO: !
 : make-report ( addr1 u1 -- )
 	\ Takes in a stats string and prints a report
 	next-csv 2swap ( addr1 u1 addr2 u2 ) \ Remaining string is todo data
-	calculate-statistics 
-	min-todo @ 0= max-todo @ 0= and if exit endif \ Skip files that never had todos
+	calculate-statistics
+	min-todo @ 0= max-todo @ 0= and if 2drop exit endif \ Skip files that never had todos
 
 	cr s" File:" print type cr
 	indent s" Min. # of TODOs:" print
@@ -260,6 +267,7 @@ variable avg-delta \ TODO: !
 		max-todo @ u.
 		4 spaces s" [" type max-timestamp @ seconds>str type s" ]" type cr
 
+	\ Calculate the timespan of measures
 	\ Only print this info if the number of todos actually changes
 	max-delta @ 0<> if
 		indent s" Avg. # of TODOs:" print
@@ -267,7 +275,17 @@ variable avg-delta \ TODO: !
 
 		indent s" Largest change :" print
 			max-delta @ .
-		4 spaces s" [" type delta-period 2@ swap seconds>str print s" to" print seconds>str type s" ]" type cr
+			4 spaces s" [" type delta-period 2@ swap seconds>str print
+			s" to" print seconds>str type s" ]" type cr
+
+		\ last-timestamp @ first-timestamp @ - 0> if
+		indent s" Sum of changes:" print sum-delta @ .
+		\ endif
+		\ 	\ Convert seconds to days
+		\ 	60e f* 60e f* 24e f*
+		\ 	f/ f.
+		\ 2 spaces s" per 24h" type cr
+		cr
 	endif
 
 	cr
