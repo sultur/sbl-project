@@ -18,6 +18,7 @@ variable csvfd
 	repeat
 	2drop ( u ) ;
 
+: prepend-comma ( addr1 u1 -- addr2 u2 ) s" ," 2swap s+ ;
 : join-on-comma ( addr1 u1 addr2 u2 -- addr3 u3 )
 	\ Join 2 strings on a comma
 	2swap s" ," s+ 2swap s+ ;
@@ -25,15 +26,14 @@ variable csvfd
 : seconds-since-epoch ( -- u1 ) \ Return seconds since epoch
 	utime #1000000 um/mod nip ;
 
-: u->str ( u1 -- addr2 u2 ) \ Convert unsigned number to string
-	['] u. >string-execute 1- ;
+: str->u ( addr1 u1 -- u ) s>number? 2drop ; \ Unchecked str to unsigned int conversion
+: u->str ( u1 -- addr2 u2 ) ['] u. >string-execute 1- ; \ Convert unsigned int to string
 
 : quote-if-needed ( addr1 u1 -- addr1 u1 )
 	\ Performs CSV quoting if separator found in string
 	2dup csv-separator scan nip 0<> ( addr1 u1 f )
 	if
-		['] .quoted-csv
-		>string-execute
+		['] .quoted-csv >string-execute
 	endif ( addr1 u1 ) ;
 
 \ CSV Writing
@@ -97,75 +97,114 @@ variable csvfd
 
 \ CSV Reporting
 
-3 Constant BLOCKSIZE
+$[]Variable statsarray
 
-variable stats \ Heap buffer (addr1,u1,addr2 blocks)
-BLOCKSIZE 100 * 1+ cells allocate throw \ 100 file limit for now, we could increase this or expand dynamically TODO
-stats !
-\ Write size to stats
-0 stats @ !
-
-: file-count ( -- u ) stats @ @ ; \ Current number of files in stats
-: as-blocks ( u -- u ) BLOCKSIZE * cells ;
-: next-free-addr ( -- addr )
-	stats @ cell+ ( addr )
-	file-count as-blocks + ( addr )
-;
-: inc-file-count ( -- ) stats @ @ 1+ stats @ ! ;
-: file-block-start ( -- addr ) stats @ cell+ ;
-: block->filename ( addr -- addr1 u1 ) 2@ ;
-: block->third ( addr -- addr2 ) cell+ cell+ @ ;
-
-: add-file-to-stats ( addr1 u1 -- addr2 )
-	next-free-addr ( ... addr )
-	-rot third ( addr addr1 u1 addr )
-	2! ( addr )
-	dup cell+ cell+ 0 swap !
-	inc-file-count
-;
-: find-file-in-stats {: addr1 u1 -- addr2 wior :}
-	\ wior=-1 if file was found, then addr2 is address of its block, otherwise wior=0
-	file-block-start ( addr2 )
-	file-count ( addr2 u ) \ Files in stats buffer
-	0 u+do  ( addr2 )
-		dup 2@ ( addr2 addr3 u3 ) \ Get filename
-		addr1 u1 str= if true unloop exit ( addr2 -1 ) endif \ Found address of file in stats
-		BLOCKSIZE cells + \ Increment by block size cells
-	loop ( addr2 )
-	false ( addr2 0 )
-;
-
-: emplace-file-in-stats ( addr1 u1 -- addr2 )
-	2dup find-file-in-stats
-	if 2nip exit endif
-	drop add-file-to-stats \ No address found, add file to stats
-;
-
-: print-stats ( -- )
-	file-block-start
-	file-count 0 u+do
-		dup block->filename type space dup block->third . cr
-		BLOCKSIZE cells +
+: locate-file-in-stats {: addr1 u1 -- u :}
+	statsarray $[]# ( u ) \ Get size
+	0 u+do
+		i statsarray $[]@ ( addr2 u2 ) \ Get string at index i
+		next-csv 2nip ( addr2 u2 ) \ Get only filename part of string
+		addr1 u1 str= if i unloop exit endif \ Return i if filename matches
 	loop
-	drop
+	\ Not found in array, add it
+	\ But first note the size, this is the index we return
+	statsarray $[]# ( u )
+	addr1 u1 quote-if-needed ( u addr1 u1 ) \ Add CSV quotes to delimit
+	statsarray $+[]! ( u ) \ Appended
 ;
 
-create csvlinebuf 0 , 0 , 0 , 0 ,
+variable curr-index
 
-: clear-linebuf ( -- )
-	csvlinebuf 2 cells + @ ( u )
-	csvlinebuf 2@ ( ... addr1 u1 )
-	emplace-file-in-stats ( ... addr2 )
-	2 cells + ( u addr3 )
-	+!
-;
-
-: analyze-csv-cell ( addr1 u1 u2 u3 )	
+: gather-cell-data ( addr1 u1 u2 u3 )	
 	1- 0= if drop 2drop exit endif \ Skip header line
 	case \ Each of the columns
-		0 of csvlinebuf 2! endof \ Filename cell
-		1 of s>number? 2drop csvlinebuf 2 cells + ! endof \ todo-count
-		2 of s>number? 2drop csvlinebuf 3 cells + ! clear-linebuf endof \ timestamp
+		0 of locate-file-in-stats curr-index ! endof \ Filename cell
+		1 of
+			prepend-comma curr-index @ ( addr1 u1 u )
+			statsarray $[]+! \ Append to string
+		endof \ todo-count
+		2 of
+			prepend-comma curr-index @ ( addr1 u1 u )
+			statsarray $[]+! \ Append to string
+		endof \ timestamp
 	endcase
 ;
 
+\ Per file stats:
+\ Highest number of TODOs
+\ Lowest number of TODOs
+\ Rate of TODOs being removed (+/- x TODOs per day/week)
+\ Most busy period
+
+variable last-timestamp
+variable last-todocount
+variable min-todo
+variable min-timestamp
+variable max-todo
+variable max-timestamp
+
+
+: reset-vars ( -- )
+	0 last-timestamp !
+	0 last-todocount !
+	-1 min-todo !
+	0 min-timestamp !
+	0 max-todo !
+	0 max-timestamp !
+;
+
+: get-next-measurement ( addr1 u1 -- addr1 u1 u2 u3 )
+	\ A measurement is a (todo-count, timestamp) pair
+	\ Returns remaining string, todo-count and timestamp
+	next-csv str->u -rot ( u2 addr1 u1 )
+	next-csv str->u -rot ( u2 u3 addr1 u1 )
+	2swap
+;
+
+: update-min-todo ( u1 -- f )
+	\ Update min-todo if current todocount is smaller, return true if value changed
+	dup min-todo @ tuck ( u1 u2 u1 u2 )
+	u<= -rot ( f u1 u2 )
+	umin min-todo !
+;
+: update-max-todo ( u1 -- f )
+	\ Update max-todo if current todocount is greater return true if value changed
+	dup max-todo @ tuck ( u1 u2 u1 u2 )
+	u>= -rot ( f u1 u2 )
+	umax max-todo !
+;
+
+: parse-measurement {: u1 u2 -- :}
+	\ Takes in (u1=todocount u2=timestamp), updates variables and calculates stats
+	u2 last-timestamp @ < if s" Timestamp decreased, please sort the csv" type cr bye endif
+
+	u1 update-min-todo if u2 min-timestamp ! endif
+	u1 update-max-todo if u2 max-timestamp ! endif
+
+	\ Save variables for next iteration
+	u2 last-timestamp !
+	u1 last-todocount !
+;
+
+: tab ( -- ) #tab emit ;
+: print ( addr1 u1 -- ) type space ;
+
+: print-report ( addr1 u1 -- )
+	\ Takes in a stats string and prints a report
+	reset-vars \ Reset variables used for parsing file stats
+	next-csv 2swap ( addr1 u1 addr2 u2 ) \ Remaining string is todo data
+	begin
+		dup 0> ( ... addr1 u1 f )
+		while
+			get-next-measurement ( addr1 u1 todocount timestamp )
+			parse-measurement ( addr1 u1 )
+	repeat
+	2drop ( addr1 u1 ) \ Drop remaining string (empty)
+	min-todo @ 0= max-todo @ 0= and if exit endif \ Skip files that never had todos
+
+	cr
+	s" File:" print type cr
+	tab s" Min. TODOs:" print min-todo @ u. space s" at" print min-timestamp @ u. cr
+	tab s" Max. TODOs:" print max-todo @ u. cr
+	cr
+;

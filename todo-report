@@ -14,14 +14,6 @@ require todolib.fs
 	#tab emit s" Parses ./" type CSVFILE type space s" and prints statistics" type cr
 ;
 
-
-\ Per file stats:
-\ Highest number of TODOs
-\ Lowest number of TODOs
-\ Rate of TODOs being removed (+/- x TODOs per day/week)
-\ Most busy period
-
-
 : main ( -- )
 	\ Go through args, if help flag provided, print usage and exit
 	argc @ 1 u+do
@@ -29,11 +21,11 @@ require todolib.fs
 		if print-usage unloop exit endif
 	loop
 
-	\ Read CSV file
-	CSVFILE ['] analyze-csv-cell
-	read-csv
+	\ Read CSV file and gather data for each file
+	CSVFILE ['] gather-cell-data read-csv ( )
 
-	print-stats
+	\ Print report for each file
+	statsarray ['] print-report $[]map ( )
 ;
 
 main bye
