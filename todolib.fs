@@ -153,10 +153,6 @@ variable curr-index
 	endcase
 ;
 
-\ Per file stats:
-\ Rate of TODOs being removed (+/- x TODOs per day/week)
-\ Most busy period
-
 variable first-timestamp
 variable last-timestamp
 variable last-todocount
@@ -174,7 +170,6 @@ variable max-delta
 2variable delta-period
 
 variable sum-delta
-\ TODO: Filter by start time (last week, last month, last year)
 
 : reset-vars ( -- ) \ Reset variables used for statistics calculations
 	0 first-timestamp ! 0 last-timestamp ! 0 last-todocount !
@@ -278,13 +273,7 @@ variable sum-delta
 			4 spaces s" [" type delta-period 2@ swap seconds>str print
 			s" to" print seconds>str type s" ]" type cr
 
-		\ last-timestamp @ first-timestamp @ - 0> if
-		indent s" Sum of changes:" print sum-delta @ .
-		\ endif
-		\ 	\ Convert seconds to days
-		\ 	60e f* 60e f* 24e f*
-		\ 	f/ f.
-		\ 2 spaces s" per 24h" type cr
+		indent s" Sum of changes :" print sum-delta @ .
 		cr
 	endif
 
