@@ -163,15 +163,22 @@ variable min-todo
 variable min-timestamp
 variable max-todo
 variable max-timestamp
+variable sum-todo
+variable n
 
+\ variable running-avg-delta
 
 : reset-vars ( -- )
 	0 last-timestamp !
 	0 last-todocount !
+
 	-1 min-todo !
 	0 min-timestamp !
 	0 max-todo !
 	0 max-timestamp !
+
+	0 sum-todo !
+	0 n !
 ;
 
 : get-next-measurement ( addr1 u1 -- addr1 u1 u2 u3 )
@@ -185,13 +192,13 @@ variable max-timestamp
 : update-min-todo ( u1 -- f )
 	\ Update min-todo if current todocount is smaller, return true if value changed
 	dup min-todo @ tuck ( u1 u2 u1 u2 )
-	u<= -rot ( f u1 u2 )
+	u< -rot ( f u1 u2 )
 	umin min-todo !
 ;
 : update-max-todo ( u1 -- f )
 	\ Update max-todo if current todocount is greater return true if value changed
 	dup max-todo @ tuck ( u1 u2 u1 u2 )
-	u>= -rot ( f u1 u2 )
+	u> -rot ( f u1 u2 )
 	umax max-todo !
 ;
 
@@ -199,8 +206,13 @@ variable max-timestamp
 	\ Takes in (u1=todocount u2=timestamp), updates variables and calculates stats
 	u2 last-timestamp @ < if s" Timestamp decreased, please sort the csv" type cr bye endif
 
+	\ Update min/max
 	u1 update-min-todo if u2 min-timestamp ! endif
 	u1 update-max-todo if u2 max-timestamp ! endif
+
+	\ Update sum and count
+	u1 sum-todo +!
+	1 n +!
 
 	\ Save variables for next iteration
 	u2 last-timestamp !
@@ -225,7 +237,9 @@ variable max-timestamp
 
 	cr
 	s" File:" print type cr
-	tab s" Min. TODOs:" print min-todo @ u. space s" at" print min-timestamp @ seconds>str type cr
-	tab s" Max. TODOs:" print max-todo @ u. space s" at" print max-timestamp @ seconds>str type cr
+	tab s" Min. # of TODOs:" print min-todo @ u. space s" at" print min-timestamp @ seconds>str type cr
+	tab s" Max. # of TODOs:" print max-todo @ u. space s" at" print max-timestamp @ seconds>str type cr
+	tab s" Avg. # of TODOs:" print sum-todo @ s>f n @ s>f f/ f. cr
+
 	cr
 ;

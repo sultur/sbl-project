@@ -24,6 +24,8 @@ require todolib.fs
 	\ Read CSV file and gather data for each file
 	CSVFILE ['] gather-cell-data read-csv ( )
 
+	\ Set floating point output precision
+	3 set-precision
 	\ Print report for each file
 	statsarray ['] print-report $[]map ( )
 ;
