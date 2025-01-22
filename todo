@@ -1,14 +1,7 @@
 #! /usr/bin/gforth
-\ Counts number of "TODO" items in code and appends to STATSFILE
+\ Counts number of "TODO" items in code and appends to CSVFILE
 require path.fs
 require todolib.fs
-
-: or-next-arg ( addr1 u1 -- addr2 u2 )
-	\ If next-arg returns a string, replace string on top of stack, otherwise do nothing
-	next-arg dup \ Check for CLI argument
-	if 2swap endif \ If CLI argument found, swap default string to top of stack
-	2drop \ Drop either #0 #0 if no argument found or default string if argument found
-;
 
 : is-help-flag? {: addr1 u1 -- f :}
 	addr1 u1 s" -h" str= ( f )
@@ -17,9 +10,10 @@ require todolib.fs
 ;
 
 : print-usage ( -- )
-	s" Usage: todo [-h/--help] [directory]" type cr cr
-	#tab emit s" Walks the provided directory (default: .), counts the number of 'TODO's in each file" type cr
-	#tab emit s" and writes to ./todostats.csv" type cr
+	s" Usage: todo [-h/--help] [directories ...]" type cr cr
+	#tab emit s" Walks the provided directories (default: .)," type cr
+	#tab emit s" counts the number of 'TODO's in each file" type cr
+	#tab emit s" and writes to " type CSVFILE type cr
 ;
 
 
@@ -34,7 +28,7 @@ require todolib.fs
 		s" ." ['] todos-to-csv ( addr1 u1 xt ) exec-on-fstree exit
 	endif
 
-	\ Iterate through given arguments
+	\ Iterate through given directories
 	begin
 	next-arg 2dup 0 0 d<> while
 		['] todos-to-csv ( addr1 u1 xt )

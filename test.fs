@@ -10,7 +10,5 @@
 ;
 test-count-substr
 
-
-
 s" All tests passed!" type cr
 bye
