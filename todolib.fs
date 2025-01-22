@@ -168,6 +168,8 @@ variable n-todo
 
 variable max-delta
 2variable delta-period
+variable avg-delta \ TODO: !
+\ TODO: Filter by start time (last week, last month, last year)
 
 : reset-vars ( -- ) \ Reset variables used for statistics calculations
 	0 last-timestamp ! 0 last-todocount !
@@ -204,11 +206,18 @@ variable max-delta
 : update-min/max {: u1 u2 -- :}
 	\ Update min/max
 	u1 update-min-todo if u2 min-timestamp ! endif
-	u1 update-max-todo if u2 max-timestamp ! endif
+	u1 update-max-todo if u2 max-timestamp ! endif ;
+
+: update-sum/count ( u1 -- ) sum-todo +! 1 n-todo +! ;
+
+: update-delta {: u1 u2 -- :}
+	\ Update max delta
+	last-todocount @ u1 - ( u ) \ How much did it increase/decrease?
+	\ Update vars if delta was greater
+	dup abs max-delta @ abs >= ( f )
+	if dup max-delta ! last-timestamp @ u2 delta-period 2! endif
+	drop
 ;
-: update-sum/count ( u1 -- )
-	\ Update sum and count
-	sum-todo +! 1 n-todo +! ;
 
 
 : parse-measurement {: u1 u2 -- :}
@@ -217,18 +226,10 @@ variable max-delta
 
 	u1 u2 update-min/max
 	u1 update-sum/count
-
-	\ Update max delta
-	last-todocount @ u1 - ( u ) \ How much did it increase/decrease?
-	\ Update vars if delta was greater and last-timestamp isn't 0
-	dup abs max-delta @ abs >= ( f )
-	last-timestamp @ 0> and ( f )
-	if dup max-delta ! last-timestamp @ u2 delta-period 2! endif
-	drop
+	last-timestamp @ 0> if u1 u2 update-delta endif \ We don't update delta in the first measurement
 
 	\ Save variables for next iteration
-	u2 last-timestamp !
-	u1 last-todocount !
+	u2 last-timestamp ! u1 last-todocount !
 ;
 
 : indent ( -- ) 4 spaces ;
