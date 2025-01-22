@@ -169,22 +169,15 @@ variable n-todo
 variable max-delta
 2variable delta-period
 
-\ variable running-avg-delta
+: reset-vars ( -- ) \ Reset variables used for statistics calculations
+	0 last-timestamp ! 0 last-todocount !
 
-: reset-vars ( -- )
-	0 last-timestamp !
-	0 last-todocount !
+	-1 min-todo ! 0 min-timestamp !
+	0 max-todo ! 0 max-timestamp !
 
-	-1 min-todo !
-	0 min-timestamp !
-	0 max-todo !
-	0 max-timestamp !
+	0 sum-todo ! 0 n-todo !
 
-	0 sum-todo !
-	0 n-todo !
-
-	0 max-delta !
-	0 0 delta-period 2!
+	0 max-delta ! 0 0 delta-period 2!
 ;
 
 : get-next-measurement ( addr1 u1 -- addr1 u1 u2 u3 )
@@ -241,10 +234,8 @@ variable max-delta
 : indent ( -- ) 4 spaces ;
 : print ( addr1 u1 -- ) type space ;
 
-: print-report ( addr1 u1 -- )
-	\ Takes in a stats string and prints a report
+: calculate-statistics ( addr1 u1 -- )
 	reset-vars \ Reset variables used for parsing file stats
-	next-csv 2swap ( addr1 u1 addr2 u2 ) \ Remaining string is todo data
 	begin
 		dup 0> ( ... addr1 u1 f )
 		while
@@ -252,18 +243,30 @@ variable max-delta
 			parse-measurement ( addr1 u1 )
 	repeat
 	2drop ( addr1 u1 ) \ Drop remaining string (empty)
+;
+
+: make-report ( addr1 u1 -- )
+	\ Takes in a stats string and prints a report
+	next-csv 2swap ( addr1 u1 addr2 u2 ) \ Remaining string is todo data
+	calculate-statistics 
 	min-todo @ 0= max-todo @ 0= and if exit endif \ Skip files that never had todos
 
-	cr
-	s" File:" print type cr
-	indent s" Min. # of TODOs:" print min-todo @ u. s" at" print min-timestamp @ seconds>str type cr
-	indent s" Max. # of TODOs:" print max-todo @ u. s" at" print max-timestamp @ seconds>str type cr
+	cr s" File:" print type cr
+	indent s" Min. # of TODOs:" print
+		min-todo @ u.
+		4 spaces s" [" type min-timestamp @ seconds>str type s" ]" type cr
+	indent s" Max. # of TODOs:" print
+		max-todo @ u.
+		4 spaces s" [" type max-timestamp @ seconds>str type s" ]" type cr
 
+	\ Only print this info if the number of todos actually changes
 	max-delta @ 0<> if
-		indent s" Avg. # of TODOs:" print sum-todo @ s>f n-todo @ s>f f/ f. cr
+		indent s" Avg. # of TODOs:" print
+			sum-todo @ s>f n-todo @ s>f f/ f. cr
 
-		indent s" Largest change:" print max-delta @ .
-		s" from" print delta-period 2@ swap seconds>str print s" to" print seconds>str type cr
+		indent s" Largest change :" print
+			max-delta @ .
+		4 spaces s" [" type delta-period 2@ swap seconds>str print s" to" print seconds>str type s" ]" type cr
 	endif
 
 	cr
